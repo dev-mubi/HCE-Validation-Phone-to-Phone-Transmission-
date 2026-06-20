@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="servicedesc">HCE Feasibility Service</string>
+    <string name="aiddescription">AID for HCE Feasibility Test</string>
+</resources>
