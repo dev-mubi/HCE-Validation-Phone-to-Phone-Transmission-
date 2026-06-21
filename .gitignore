@@ -46,3 +46,4 @@ app.*.map.json
 
 # Agent instruction file
 hce_validation_srs.md
+iteration2_srs.md

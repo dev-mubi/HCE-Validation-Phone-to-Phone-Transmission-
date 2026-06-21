@@ -2,9 +2,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_nfc_hce/flutter_nfc_hce.dart';
 import 'package:nfc_manager/nfc_manager.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 
 // HARDCODED TEST PAYLOAD (Section 4.2 / 4.3 Requirement)
 const String testPayload = "HELLO_FROM_PHONE_A";
+
+// Iteration 2: FastAPI Backend Base URL
+const String backendBaseUrl = "http://10.0.2.2:8000"; // Default loopback for Android emulator/LAN
 
 void main() {
   runApp(const MyApp());
@@ -157,6 +162,7 @@ class EmitterScreen extends StatefulWidget {
 
 class _EmitterScreenState extends State<EmitterScreen> {
   final _hcePlugin = FlutterNfcHce();
+  final TextEditingController _payloadController = TextEditingController(text: "HELLO_FROM_PHONE_A");
   bool _isBroadcasting = false;
   String _hardwareStatus = "Checking...";
   String _errorLog = "";
@@ -166,6 +172,12 @@ class _EmitterScreenState extends State<EmitterScreen> {
   void initState() {
     super.initState();
     _checkHardware();
+  }
+
+  @override
+  void dispose() {
+    _payloadController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkHardware() async {
@@ -210,6 +222,14 @@ class _EmitterScreenState extends State<EmitterScreen> {
       }
     } else {
       // START
+      final String textToBroadcast = _payloadController.text.trim();
+      if (textToBroadcast.isEmpty) {
+        setState(() {
+          _errorLog = "Enter text before broadcasting";
+        });
+        return;
+      }
+
       // Verify hardware state first
       await _checkHardware();
       if (!mounted) return;
@@ -222,7 +242,7 @@ class _EmitterScreenState extends State<EmitterScreen> {
 
       try {
         var result = await _hcePlugin.startNfcHce(
-          testPayload,
+          textToBroadcast,
           mimeType: 'text/plain',
           persistMessage: true,
         );
@@ -289,26 +309,38 @@ class _EmitterScreenState extends State<EmitterScreen> {
                 ),
               ),
 
-            // Payload Information Box
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF1A1A1A), width: 1.5),
-                color: const Color(0xFFF9F9F9),
+            // Variable Payload Input Field
+            TextField(
+              controller: _payloadController,
+              enabled: !_isBroadcasting,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1A1A1A),
               ),
-              padding: const EdgeInsets.all(16),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'BROADCAST PAYLOAD CONSTANT',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF888888)),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    testPayload,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A)),
-                  ),
-                ],
+              decoration: const InputDecoration(
+                labelText: 'BROADCAST PAYLOAD',
+                labelStyle: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF888888),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.zero,
+                  borderSide: BorderSide(color: Color(0xFF1A1A1A), width: 1.5),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.zero,
+                  borderSide: BorderSide(color: Color(0xFF1A1A1A), width: 2.0),
+                ),
+                disabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.zero,
+                  borderSide: BorderSide(color: Color(0xFFCCCCCC), width: 1.5),
+                ),
+                filled: true,
+                fillColor: Color(0xFFF9F9F9),
               ),
             ),
             const SizedBox(height: 32),
@@ -451,6 +483,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
   String _errorLog = "";
   List<ReaderLogEntry> _logs = [];
 
+  // Iteration 2 states
+  String _transactionStatus = "IDLE";
+  bool _isReporting = false;
+
   @override
   void initState() {
     super.initState();
@@ -494,13 +530,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
     setState(() {
       _isListening = true;
       _errorLog = "";
+      _transactionStatus = "LISTENING FOR TAG...";
     });
 
     try {
       await NfcManager.instance.startSession(
         onDiscovered: (NfcTag tag) async {
           if (!mounted) return;
-          // Keep session open but parse records
           String parsedPayload = "";
           bool successfullyDecoded = false;
 
@@ -527,23 +563,32 @@ class _ReaderScreenState extends State<ReaderScreen> {
             parsedPayload = _extractRawBytes(tag);
           }
 
-          if (parsedPayload.isNotEmpty) {
-            final isPass = parsedPayload == testPayload;
+          // Empty check validation (Reject immediately)
+          if (parsedPayload.isEmpty) {
             setState(() {
-              _logs.insert(
-                0,
-                ReaderLogEntry(
-                  timestamp: DateTime.now(),
-                  content: parsedPayload,
-                  isPass: isPass,
-                ),
-              );
-              // Cap log size at 10 items
-              if (_logs.length > 10) {
-                _logs = _logs.sublist(0, 10);
-              }
+              _transactionStatus = "Received empty payload — no transaction recorded";
             });
+            return;
           }
+
+          final isPass = parsedPayload == testPayload;
+          setState(() {
+            _logs.insert(
+              0,
+              ReaderLogEntry(
+                timestamp: DateTime.now(),
+                content: parsedPayload,
+                isPass: isPass,
+              ),
+            );
+            // Cap log size at 10 items
+            if (_logs.length > 10) {
+              _logs = _logs.sublist(0, 10);
+            }
+          });
+
+          // Trigger Location Capture & Transaction Report POST
+          _processTransaction(parsedPayload);
         },
       );
     } catch (e) {
@@ -551,6 +596,92 @@ class _ReaderScreenState extends State<ReaderScreen> {
       setState(() {
         _errorLog = "Start Session Error: $e";
         _isListening = false;
+      });
+    }
+  }
+
+  Future<void> _processTransaction(String payload) async {
+    if (_isReporting) return;
+    if (!mounted) return;
+    setState(() {
+      _isReporting = true;
+      _transactionStatus = "CAPTURING LOCATION...";
+    });
+
+    try {
+      // Check location service enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception("Location services are disabled.");
+      }
+
+      // Check/request runtime permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception("Location permission denied by user.");
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception("Location permissions are permanently denied.");
+      }
+
+      // Get high accuracy current position with settings
+      const LocationSettings locationSettings = LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
+      );
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: locationSettings,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _transactionStatus = "SENDING REPORT...";
+      });
+
+      // Send HTTP POST report to backend
+      final url = Uri.parse("$backendBaseUrl/transaction-report");
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "payload": payload,
+          "latitude": position.latitude,
+          "longitude": position.longitude,
+          "timestamp": DateTime.now().toUtc().toIso8601String(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        setState(() {
+          _transactionStatus = "REPORT SUCCESS: Email Sent";
+          _isReporting = false;
+        });
+      } else {
+        String serverError = "";
+        try {
+          final bodyJson = jsonDecode(response.body);
+          serverError = bodyJson["detail"] ?? response.body;
+        } catch (_) {
+          serverError = response.body;
+        }
+        setState(() {
+          _transactionStatus = "REPORT FAILED (HTTP ${response.statusCode}): $serverError";
+          _isReporting = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _transactionStatus = "REPORT ERROR: ${e.toString()}";
+        _isReporting = false;
       });
     }
   }
@@ -564,6 +695,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (mounted) {
       setState(() {
         _isListening = false;
+        _transactionStatus = "IDLE";
       });
     }
   }
@@ -632,7 +764,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Current Mode Header
+            // Current Role Header
             const Text(
               'ROLE: READER',
               style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
@@ -668,7 +800,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ),
               ),
 
-            // Expected payload comparison reference
+            // Expected payload comparison reference (just for comparison convenience)
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: const Color(0xFF1A1A1A), width: 1.5),
@@ -706,44 +838,83 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Listening State indicator
-            Center(
-              child: Column(
-                children: [
-                  const Text(
-                    'READER SCAN STATE',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
+            // Transaction report status indicator (Iteration 2)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'TRANSACTION REPORT STATUS',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF888888)),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFF1A1A1A), width: 1.5),
+                    color: const Color(0xFFF9F9F9),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _isListening ? 'LISTENING' : 'NOT LISTENING',
+                  child: Text(
+                    _transactionStatus,
                     style: TextStyle(
-                      fontSize: 24,
+                      fontFamily: 'monospace',
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: _isListening ? const Color(0xFF00AA55) : const Color(0xFF1A1A1A),
+                      color: _transactionStatus.contains("SUCCESS")
+                          ? const Color(0xFF00AA55)
+                          : (_transactionStatus.contains("FAILED") ||
+                                  _transactionStatus.contains("ERROR") ||
+                                  _transactionStatus.contains("empty"))
+                              ? const Color(0xFFDD2200)
+                              : const Color(0xFF1A1A1A),
                     ),
+                    textAlign: TextAlign.center,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
 
-            // Primary Toggle Button
-            ElevatedButton(
-              onPressed: _toggleListening,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isListening ? const Color(0xFFDD2200) : const Color(0xFF1A1A1A),
-                foregroundColor: const Color(0xFFFFFFFF),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.zero,
+            // Scan/Listening State indicator & Button
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'READER SCAN STATE',
+                        style: TextStyle(fontSize: 10, color: Color(0xFF888888)),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _isListening ? 'LISTENING' : 'NOT LISTENING',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: _isListening ? const Color(0xFF00AA55) : const Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              child: Text(
-                _isListening ? 'STOP LISTENING' : 'START LISTENING',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
+                ElevatedButton(
+                  onPressed: _toggleListening,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isListening ? const Color(0xFFDD2200) : const Color(0xFF1A1A1A),
+                    foregroundColor: const Color(0xFFFFFFFF),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.zero,
+                    ),
+                  ),
+                  child: Text(
+                    _isListening ? 'STOP' : 'START LISTENING',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
 
