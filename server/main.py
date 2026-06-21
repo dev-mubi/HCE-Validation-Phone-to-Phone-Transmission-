@@ -48,17 +48,13 @@ async def transaction_report(report: TransactionReportRequest):
         f"location=({report.latitude}, {report.longitude}), timestamp={report.timestamp}"
     )
 
-    # Validate that payload is not empty
-    if not report.payload.strip():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Transaction rejected: payload cannot be empty.",
-        )
+    # Prepare payload representation (allow empty payloads)
+    email_payload = report.payload.strip() if report.payload.strip() else "[EMPTY PAYLOAD]"
 
     try:
-        # Trigger MailerSend email dispatch
+        # Trigger Resend email dispatch
         success = send_transaction_email(
-            payload=report.payload,
+            payload=email_payload,
             latitude=report.latitude,
             longitude=report.longitude,
             timestamp_iso=report.timestamp,

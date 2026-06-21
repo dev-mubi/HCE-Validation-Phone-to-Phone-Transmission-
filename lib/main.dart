@@ -269,186 +269,188 @@ class _EmitterScreenState extends State<EmitterScreen> {
       appBar: AppBar(
         title: const Text('EMITTER CONTROL'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Current Mode Header
-            const Text(
-              'ROLE: EMITTER',
-              style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
-            ),
-            const SizedBox(height: 24),
-            // Hardware Status Warning Box
-            if (!isReady)
-              Container(
-                margin: const EdgeInsets.only(bottom: 24),
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFDD2200), width: 2.0),
-                  color: const Color(0xFFFFF0F0),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'HARDWARE WARNING: $_hardwareStatus',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFDD2200),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Current Mode Header
+              const Text(
+                'ROLE: EMITTER',
+                style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
+              ),
+              const SizedBox(height: 24),
+              // Hardware Status Warning Box
+              if (!isReady)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFDD2200), width: 2.0),
+                    color: const Color(0xFFFFF0F0),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'HARDWARE WARNING: $_hardwareStatus',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFDD2200),
+                        ),
                       ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Please verify NFC is enabled in System Settings and that your device supports Host Card Emulation.',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF882222)),
+                      ),
+                    ],
+                  ),
+                ),
+  
+              // Variable Payload Input Field
+              TextField(
+                controller: _payloadController,
+                enabled: !_isBroadcasting,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1A1A),
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'BROADCAST PAYLOAD',
+                  labelStyle: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF888888),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.zero,
+                    borderSide: BorderSide(color: Color(0xFF1A1A1A), width: 1.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.zero,
+                    borderSide: BorderSide(color: Color(0xFF1A1A1A), width: 2.0),
+                  ),
+                  disabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.zero,
+                    borderSide: BorderSide(color: Color(0xFFCCCCCC), width: 1.5),
+                  ),
+                  filled: true,
+                  fillColor: Color(0xFFF9F9F9),
+                ),
+              ),
+              const SizedBox(height: 32),
+  
+              // Large State Label
+              Center(
+                child: Column(
+                  children: [
+                    const Text(
+                      'BROADCAST STATE',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Please verify NFC is enabled in System Settings and that your device supports Host Card Emulation.',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF882222)),
+                    Text(
+                      _isBroadcasting ? 'BROADCASTING' : 'IDLE',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: _isBroadcasting ? const Color(0xFF00AA55) : const Color(0xFF1A1A1A),
+                      ),
                     ),
                   ],
                 ),
               ),
-
-            // Variable Payload Input Field
-            TextField(
-              controller: _payloadController,
-              enabled: !_isBroadcasting,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1A1A1A),
-              ),
-              decoration: const InputDecoration(
-                labelText: 'BROADCAST PAYLOAD',
-                labelStyle: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF888888),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.zero,
-                  borderSide: BorderSide(color: Color(0xFF1A1A1A), width: 1.5),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.zero,
-                  borderSide: BorderSide(color: Color(0xFF1A1A1A), width: 2.0),
-                ),
-                disabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.zero,
-                  borderSide: BorderSide(color: Color(0xFFCCCCCC), width: 1.5),
-                ),
-                filled: true,
-                fillColor: Color(0xFFF9F9F9),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Large State Label
-            Center(
-              child: Column(
-                children: [
-                  const Text(
-                    'BROADCAST STATE',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
+              const SizedBox(height: 40),
+  
+              // Primary Toggle Button
+              ElevatedButton(
+                onPressed: _toggleBroadcasting,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _isBroadcasting ? const Color(0xFFDD2200) : const Color(0xFF1A1A1A),
+                  foregroundColor: const Color(0xFFFFFFFF),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.zero, // Sharp edges
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _isBroadcasting ? 'BROADCASTING' : 'IDLE',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: _isBroadcasting ? const Color(0xFF00AA55) : const Color(0xFF1A1A1A),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 40),
-
-            // Primary Toggle Button
-            ElevatedButton(
-              onPressed: _toggleBroadcasting,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isBroadcasting ? const Color(0xFFDD2200) : const Color(0xFF1A1A1A),
-                foregroundColor: const Color(0xFFFFFFFF),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.zero, // Sharp edges
+                ),
+                child: Text(
+                  _isBroadcasting ? 'STOP BROADCASTING' : 'START BROADCASTING',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
-              child: Text(
-                _isBroadcasting ? 'STOP BROADCASTING' : 'START BROADCASTING',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Session Reads Counter (Section 4.2 constraint details)
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE0E0E0), width: 1.0),
-              ),
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'SESSION READS COUNTER',
-                          style: TextStyle(fontSize: 10, color: Color(0xFF888888)),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$_successReads (Callback Limitation*)',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _successReads = 0;
-                      });
-                    },
-                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF1A1A1A)),
-                    child: const Text('RESET', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '* Note: The flutter_nfc_hce plugin runs the card emulator in a background OS service without exposing a read-completion callback. Therefore, this counter remains zero.',
-              style: TextStyle(fontSize: 9, color: Color(0xFF888888), height: 1.3),
-            ),
-
-            // Raw Error Panel (Section 4.4 constraint)
-            if (_errorLog.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              const Text(
-                'EXCEPTION LOG',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFDD2200)),
-              ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 32),
+  
+              // Session Reads Counter (Section 4.2 constraint details)
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFDD2200), width: 1.0),
-                  color: const Color(0xFFFFF5F5),
+                  border: Border.all(color: const Color(0xFFE0E0E0), width: 1.0),
                 ),
                 padding: const EdgeInsets.all(12),
-                child: SelectableText(
-                  _errorLog,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFFDD2200)),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'SESSION READS COUNTER',
+                            style: TextStyle(fontSize: 10, color: Color(0xFF888888)),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$_successReads (Callback Limitation*)',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _successReads = 0;
+                        });
+                      },
+                      style: TextButton.styleFrom(foregroundColor: const Color(0xFF1A1A1A)),
+                      child: const Text('RESET', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                 ),
               ),
-            ]
-          ],
+              const SizedBox(height: 8),
+              const Text(
+                '* Note: The flutter_nfc_hce plugin runs the card emulator in a background OS service without exposing a read-completion callback. Therefore, this counter remains zero.',
+                style: TextStyle(fontSize: 9, color: Color(0xFF888888), height: 1.3),
+              ),
+  
+              // Raw Error Panel (Section 4.4 constraint)
+              if (_errorLog.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                const Text(
+                  'EXCEPTION LOG',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFDD2200)),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFDD2200), width: 1.0),
+                    color: const Color(0xFFFFF5F5),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: SelectableText(
+                    _errorLog,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFFDD2200)),
+                  ),
+                ),
+              ]
+            ],
+          ),
         ),
       ),
     );
@@ -486,6 +488,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   // Iteration 2 states
   String _transactionStatus = "IDLE";
   bool _isReporting = false;
+  bool _acceptEmptyPayload = false;
 
   @override
   void initState() {
@@ -563,15 +566,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
             parsedPayload = _extractRawBytes(tag);
           }
 
-          // Empty check validation (Reject immediately)
-          if (parsedPayload.isEmpty) {
+          // Empty check validation (Reject immediately if toggle is off)
+          if (parsedPayload.isEmpty && !_acceptEmptyPayload) {
             setState(() {
               _transactionStatus = "Received empty payload — no transaction recorded";
             });
             return;
           }
 
-          final isPass = parsedPayload == testPayload;
+          final isPass = parsedPayload.isNotEmpty;
           setState(() {
             _logs.insert(
               0,
@@ -800,43 +803,36 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ),
               ),
 
-            // Expected payload comparison reference (just for comparison convenience)
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF1A1A1A), width: 1.5),
-                color: const Color(0xFFF9F9F9),
-              ),
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'EXPECTED TARGET PAYLOAD',
-                          style: TextStyle(fontSize: 10, color: Color(0xFF888888)),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          testPayload,
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
+
+
+            // Accept Empty Payload Toggle Switch
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'ACCEPT EMPTY PAYLOADS',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A1A1A),
                   ),
-                  Container(
-                    color: const Color(0xFF1A1A1A),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: const Text(
-                      'MATCH REF',
-                      style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  )
-                ],
-              ),
+                ),
+                Switch(
+                  value: _acceptEmptyPayload,
+                  onChanged: (val) {
+                    setState(() {
+                      _acceptEmptyPayload = val;
+                    });
+                  },
+                  activeColor: const Color(0xFF1A1A1A),
+                  activeTrackColor: const Color(0xFFCCCCCC),
+                  inactiveThumbColor: const Color(0xFF888888),
+                  inactiveTrackColor: const Color(0xFFEEEEEE),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // Transaction report status indicator (Iteration 2)
             Column(
