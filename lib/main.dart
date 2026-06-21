@@ -574,7 +574,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             return;
           }
 
-          final isPass = parsedPayload.isNotEmpty;
+          final isPass = parsedPayload.isNotEmpty || _acceptEmptyPayload;
           setState(() {
             _logs.insert(
               0,
