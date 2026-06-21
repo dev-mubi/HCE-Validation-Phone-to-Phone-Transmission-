@@ -78,6 +78,19 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 ## 📡 API Reference
 
+### Service Health Check
+`GET /health`
+
+Used to check server uptime and keep Render web services awake via automated ping services or cron jobs.
+
+#### Response
+```json
+{
+  "status": "healthy",
+  "timestamp": "ISO 8601 current timestamp"
+}
+```
+
 ### Post Transaction Log
 `POST /transaction-report`
 

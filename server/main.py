@@ -30,6 +30,13 @@ class TransactionReportRequest(BaseModel):
     longitude: float = Field(..., description="GPS Longitude coordinate of Reader device")
     timestamp: str = Field(..., description="ISO 8601 formatted timestamp sent by the reader")
 
+@app.get("/health", status_code=status.HTTP_200_OK)
+async def health_check():
+    """
+    Simple health check endpoint to keep Render services active.
+    """
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
 @app.post("/transaction-report", status_code=status.HTTP_201_CREATED)
 async def transaction_report(report: TransactionReportRequest):
     """
