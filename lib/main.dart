@@ -9,7 +9,7 @@ import 'package:http/http.dart' as http;
 const String testPayload = "HELLO_FROM_PHONE_A";
 
 // Iteration 2: FastAPI Backend Base URL
-const String backendBaseUrl = "http://10.0.2.2:8000"; // Default loopback for Android emulator/LAN
+const String backendBaseUrl = "https://hce-validation-phone-to-phone.onrender.com";
 
 void main() {
   runApp(const MyApp());
